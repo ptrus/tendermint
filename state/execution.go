@@ -205,8 +205,9 @@ func execBlockOnProxyApp(logger log.Logger, proxyAppConn proxy.AppConnConsensus,
 
 	commitInfo, byzVals := getBeginBlockValidatorInfo(block, lastValSet, stateDB)
 
-	// Begin block.
-	_, err := proxyAppConn.BeginBlockSync(abci.RequestBeginBlock{
+	// Begin block
+	var err error
+	abciResponses.BeginBlock, err = proxyAppConn.BeginBlockSync(abci.RequestBeginBlock{
 		Hash:                block.Hash(),
 		Header:              types.TM2PB.Header(&block.Header),
 		LastCommitInfo:      commitInfo,
@@ -391,7 +392,11 @@ func updateState(state State, blockID types.BlockID, header *types.Header,
 // Fire TxEvent for every tx.
 // NOTE: if Tendermint crashes before commit, some or all of these events may be published again.
 func fireEvents(logger log.Logger, eventBus types.BlockEventPublisher, block *types.Block, abciResponses *ABCIResponses) {
-	eventBus.PublishEventNewBlock(types.EventDataNewBlock{block})
+	eventBus.PublishEventNewBlock(types.EventDataNewBlock{
+		Block:            block,
+		ResultBeginBlock: *abciResponses.BeginBlock,
+		ResultEndBlock:   *abciResponses.EndBlock,
+	})
 	eventBus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{block.Header})
 
 	for i, tx := range block.Data.Txs {
