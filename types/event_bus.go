@@ -72,7 +72,28 @@ func (b *EventBus) Publish(eventType string, eventData TMEventData) error {
 }
 
 func (b *EventBus) PublishEventNewBlock(data EventDataNewBlock) error {
-	return b.Publish(EventNewBlock, data)
+	// no explicit deadline for publishing events
+	ctx := context.Background()
+
+	tags := make(map[string]string)
+	resultTags := append(data.ResultBeginBlock.Tags, data.ResultEndBlock.Tags...)
+
+	// validate and fill tags from BeginBlock/EndBlock results
+	for _, tag := range resultTags {
+		// basic validation
+		if len(tag.Key) == 0 {
+			b.Logger.Info("Got tag with an empty key (skipping)", "tag", tag, "block", data.Block)
+			continue
+		}
+		tags[string(tag.Key)] = string(tag.Value)
+	}
+
+	// add predefined tags
+	logIfTagExists(EventTypeKey, tags, b.Logger)
+	tags[EventTypeKey] = EventNewBlock
+
+	b.pubsub.PublishWithTags(ctx, data, tmpubsub.NewTagMap(tags))
+	return nil
 }
 
 func (b *EventBus) PublishEventNewBlockHeader(data EventDataNewBlockHeader) error {

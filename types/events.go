@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	amino "github.com/tendermint/go-amino"
+	abci "github.com/tendermint/tendermint/abci/types"
 	tmpubsub "github.com/tendermint/tendermint/libs/pubsub"
 	tmquery "github.com/tendermint/tendermint/libs/pubsub/query"
 )
@@ -52,7 +53,10 @@ func RegisterEventDatas(cdc *amino.Codec) {
 // but some (an input to a call tx or a receive) are more exotic
 
 type EventDataNewBlock struct {
-	Block *Block `json:"block"`
+	Block            *Block                  `json:"block"`
+
+	ResultBeginBlock abci.ResponseBeginBlock `json:"result_begin_block"`
+	ResultEndBlock   abci.ResponseEndBlock   `json:"result_end_block"`
 }
 
 // light weight event for benchmarking

@@ -58,6 +58,48 @@ func TestEventBusPublishEventTx(t *testing.T) {
 	}
 }
 
+func TestEventBusPublishEventNewBlock(t *testing.T) {
+	eventBus := NewEventBus()
+	err := eventBus.Start()
+	require.NoError(t, err)
+	defer eventBus.Stop()
+
+	block := MakeBlock(0, []Tx{}, nil, []Evidence{})
+	resultBeginBlock := abci.ResponseBeginBlock{Tags: []cmn.KVPair{{Key: []byte("baz"), Value: []byte("1")}}}
+	resultEndBlock := abci.ResponseEndBlock{Tags: []cmn.KVPair{{Key: []byte("foz"), Value: []byte("2")}}}
+
+	txEventsCh := make(chan interface{})
+
+	// PublishEventNewBlock adds the tm.event tag, so the query below should work
+	query := "tm.event='NewBlock' AND baz=1 AND foz=2"
+	err = eventBus.Subscribe(context.Background(), "test", tmquery.MustParse(query), txEventsCh)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		for e := range txEventsCh {
+			edt := e.(EventDataNewBlock)
+			assert.Equal(t, block, edt.Block)
+			assert.Equal(t, resultBeginBlock, edt.ResultBeginBlock)
+			assert.Equal(t, resultEndBlock, edt.ResultEndBlock)
+			close(done)
+		}
+	}()
+
+	err = eventBus.PublishEventNewBlock(EventDataNewBlock{
+		Block:            block,
+		ResultBeginBlock: resultBeginBlock,
+		ResultEndBlock:   resultEndBlock,
+	})
+	assert.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("did not receive a transaction after 1 sec.")
+	}
+}
+
 func TestEventBusPublish(t *testing.T) {
 	eventBus := NewEventBus()
 	err := eventBus.Start()
